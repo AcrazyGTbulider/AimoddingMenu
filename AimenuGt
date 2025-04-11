@@ -1,0 +1,203 @@
+using UnityEngine;
+using UnityEngine.UI;
+using System.Collections.Generic;
+using System.IO;
+
+public class GorillaTagMod : MonoBehaviour
+{
+    [Header("UI Elements")]
+    public GameObject modMenuUI;
+    public Text modMenuText;
+    public InputField usernameInput;
+    public Text walkmodText;
+    public Button startWalkingButton;
+    public Button antiReportButton;
+    public Button mosaSettingsButton;
+    public Button rainbowButton;
+    public Text statusText;
+
+    [Header("Auto-Anti Mod UI")]
+    public GameObject warningUI;
+    public Text warningText;
+    public Button leaveButton;
+
+    [Header("Settings")]
+    [SerializeField]
+    private float speedMultiplier = 2f;
+    [SerializeField]
+    private float jumpHeightBoost = 0.7f;
+
+    private bool isWalkingEnabled = false;
+    private bool isMosaEnabled = false;
+    private float rainbowTimer = 0f;
+
+    private HashSet<string> moderatorList = new HashSet<string>() { "ModUser1", "ModUser2", "ModUser3" }; // Add moderator usernames here
+    private List<string> playerLogs = new List<string>();
+
+    void Start()
+    {
+        InitializeUI();
+        InitializeAntiModSystem();
+    }
+
+    void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Tab)) ToggleModMenu();
+
+        if (isWalkingEnabled) HandleMovement();
+        if (isMosaEnabled) ApplyMosaSettings();
+
+        UpdateRainbowEffect();
+    }
+
+    private void InitializeUI()
+    {
+        // Setup button listeners
+        startWalkingButton.onClick.AddListener(OnStartWalking);
+        antiReportButton.onClick.AddListener(ActivateAntiReport);
+        mosaSettingsButton.onClick.AddListener(ToggleMosaSettings);
+        rainbowButton.onClick.AddListener(() => rainbowTimer = 0f);
+
+        // Hide the mod menu and warning UI initially
+        modMenuUI.SetActive(false);
+        warningUI.SetActive(false);
+
+        // Setup leave button listener
+        leaveButton.onClick.AddListener(() => LeaveLobby());
+    }
+
+    private void InitializeAntiModSystem()
+    {
+        // Simulated events for player joins and leaves (replace with actual Gorilla Tag API hooks if available)
+        SimulatePlayerJoin("Player123");
+        SimulatePlayerJoin("ModUser1"); // Simulated moderator joining
+        SimulatePlayerLeave("Player123");
+    }
+
+    private void ToggleModMenu()
+    {
+        modMenuUI.SetActive(!modMenuUI.activeSelf);
+        if (modMenuUI.activeSelf)
+        {
+            walkmodText.text = "Move hands to type user\nUse WASD to walk and wave.";
+        }
+    }
+
+    private void HandleMovement()
+    {
+        Vector3 movement = new Vector3(
+            Input.GetAxis("Horizontal"), // Maps to A/D or Left/Right keys
+            0,
+            Input.GetAxis("Vertical")    // Maps to W/S or Up/Down keys
+        ) * (speedMultiplier * Time.deltaTime);
+
+        if (movement.sqrMagnitude > 0) // Avoid unnecessary transform updates for zero movement
+        {
+            transform.Translate(movement, Space.Self);
+        }
+    }
+
+    private void OnStartWalking()
+    {
+        string username = usernameInput.text.Trim();
+        if (string.IsNullOrEmpty(username))
+        {
+            statusText.text = "Please enter a username!";
+            return;
+        }
+
+        statusText.text = $"Walking as {username}";
+        isWalkingEnabled = true;
+    }
+
+    private void ActivateAntiReport()
+    {
+        string playerID = "PlayerID123"; // Replace with actual ID retrieval logic
+        string reportData = $"Player: {playerID}\nReported at: {System.DateTime.Now:yyyy-MM-dd HH:mm:ss}\n";
+
+        try
+        {
+            File.AppendAllText("ReportPlayersID.txt", reportData);
+            statusText.text = "Report has been logged!";
+        }
+        catch (IOException ex)
+        {
+            statusText.text = $"Error logging report: {ex.Message}";
+        }
+    }
+
+    private void ToggleMosaSettings()
+    {
+        isMosaEnabled = !isMosaEnabled;
+        statusText.text = isMosaEnabled ? "Mosa Settings Enabled" : "Mosa Settings Disabled";
+    }
+
+    private void ApplyMosaSettings()
+    {
+        if (Input.GetButtonDown("Jump"))
+        {
+            transform.Translate(Vector3.up * (jumpHeightBoost * Time.deltaTime), Space.World);
+        }
+    }
+
+    private void UpdateRainbowEffect()
+    {
+        if (rainbowButton == null) return;
+
+        rainbowTimer += Time.deltaTime * 2f;
+        if (rainbowTimer > 1f) rainbowTimer = 0f;
+
+        Color rainbowColor = Color.HSVToRGB(rainbowTimer, 1f, 1f);
+        Image buttonImage = rainbowButton.GetComponent<Image>();
+        if (buttonImage != null)
+        {
+            buttonImage.color = rainbowColor;
+        }
+    }
+
+    // Simulated player join event
+    private void SimulatePlayerJoin(string username)
+    {
+        string timestamp = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        playerLogs.Add($"JOIN: {username} at {timestamp}");
+        Debug.Log($"Player Joined: {username}");
+
+        if (moderatorList.Contains(username))
+        {
+            ShowModeratorWarning(username);
+        }
+
+        LogPlayerEvents();
+    }
+
+    // Simulated player leave event
+    private void SimulatePlayerLeave(string username)
+    {
+        string timestamp = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        playerLogs.Add($"LEAVE: {username} at {timestamp}");
+        Debug.Log($"Player Left: {username}");
+
+        LogPlayerEvents();
+    }
+
+    private void ShowModeratorWarning(string moderatorName)
+    {
+        warningUI.SetActive(true);
+        warningText.text = $"WARNING: Moderator \"{moderatorName}\" detected! Please leave immediately!";
+    }
+
+    private void LeaveLobby()
+    {
+        // Implement actual logic to leave the lobby
+        Debug.Log("Player chose to leave the lobby.");
+        warningUI.SetActive(false);
+        statusText.text = "You left the lobby.";
+    }
+
+    private void LogPlayerEvents()
+    {
+        string logFilePath = "PlayerLogs.txt";
+        File.WriteAllLines(logFilePath, playerLogs);
+        Debug.Log($"Player events logged to {logFilePath}");
+    }
+}
